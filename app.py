@@ -32,8 +32,8 @@ def add_bg_from_local(image_file):
         
         /* HEADING (TITLE) */
         #main-title {{
-            font-size: 85px !important; 
-            color: white !important;  /* <--- YAHAN CHANGE KIYA HAI */
+            font-size: 65px !important; 
+            color: white !important;  
             text-align: center;
             text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.9) !important;
             margin-top: 105px !important;
