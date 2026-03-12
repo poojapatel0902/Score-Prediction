@@ -98,18 +98,40 @@ def add_bg_from_local(image_file):
         div[data-testid="stAlert"] {{ background-color: rgba(225,225,225, 0.5) !important; border-radius: 8px !important; }}
         div[data-testid="stAlert"] p {{ color: black !important; font-size: 22px !important; text-shadow: none !important; }}
 
-        /* MOBILE RESPONSIVE CSS */
+        /* =========================================
+           10. 📱 MOBILE AUR TABLET RESPONSIVE CSS
+           ========================================= */
         @media screen and (max-width: 768px) {{
-            #main-title {{ font-size: 50px !important; line-height: 1.2 !important; }}
-            .block-container {{ padding-top: 10vh !important; }}
-            p, label {{ font-size: 18px !important; }}
-            div[data-baseweb="select"] > div, div[data-testid="stNumberInputContainer"], input, span {{ font-size: 16px !important; min-height: 40px !important; }}
-            div.stButton > button {{ height: 45px !important; margin-top: 15px !important; }}
-            div.stButton > button p {{ font-size: 20px !important; }}
+            h1.page-title {{
+                font-size: 45 px !important; /* Have aa change thase */
+                line-height: 1.2 !important;
+            }}
+            p, label {{
+                font-size: 22px !important;
+            }}
         }}
 
+        /* 3. SMALL PHONES (480px and below) */
+        /* Aa hamesha 768px ni niche rakhvu */
         @media screen and (max-width: 480px) {{
-            #main-title {{ font-size: 45px !important; }}
+            h1.page-title {{
+                font-size: 35px !important; 
+            }}
+            p, label {{
+                font-size: 18px !important;
+            }}
+        }}
+        
+        /* Baaki no CSS (Background, Buttons etc.) am nam j rehva do */
+        .stApp::before {{
+            content: "";
+            background-image: url(data:image/png;base64,{encoded_string});
+            background-size: cover;
+            background-attachment: fixed;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            filter: blur(4px); 
+            z-index: -1;
         }}
         </style>
         """,
