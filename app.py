@@ -103,7 +103,7 @@ def add_bg_from_local(image_file):
            ========================================= */
         @media screen and (max-width: 768px) {{
             h1.page-title {{
-                font-size: 32 px !important; /* Have aa change thase */
+                font-size: 40 px !important; /* Have aa change thase */
                 line-height: 1.2 !important;
             }}
             p, label {{
@@ -115,7 +115,7 @@ def add_bg_from_local(image_file):
         /* Aa hamesha 768px ni niche rakhvu */
         @media screen and (max-width: 480px) {{
             h1.page-title {{
-                font-size: 15px !important; 
+                font-size: 32px !important; 
             }}
             p, label {{
                 font-size: 18px !important;
