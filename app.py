@@ -101,13 +101,14 @@ def add_bg_from_local(image_file):
         div[data-testid="stAlert"] {{ background-color: rgba(225,225,225, 0.5) !important; border-radius: 8px !important; }}
         div[data-testid="stAlert"] p {{ color: black !important; font-size: 22px !important; text-shadow: none !important; }}
 
-        /* =========================================
+       /* =========================================
            10. 📱 MOBILE AUR TABLET RESPONSIVE CSS
            ========================================= */
         @media screen and (max-width: 768px) {{
-            h1.page-title {{
-                font-size: 45 px !important; /* Have aa change thase */
+            #main-title {{
+                font-size: 45px !important; /* Ab space nahi hai aur id sahi hai */
                 line-height: 1.2 !important;
+                margin-top: 30px !important;
             }}
             p, label {{
                 font-size: 22px !important;
@@ -115,10 +116,10 @@ def add_bg_from_local(image_file):
         }}
 
         /* 3. SMALL PHONES (480px and below) */
-        /* Aa hamesha 768px ni niche rakhvu */
         @media screen and (max-width: 480px) {{
-            h1.page-title {{
-                font-size: 35px !important; 
+            #main-title {{
+                font-size: 35px !important; /* Chhote phone ke liye perfect */
+                margin-top: 10px !important;
             }}
             p, label {{
                 font-size: 18px !important;
@@ -146,8 +147,9 @@ add_bg_from_local("image3.png")
 # ---------------- TOURNAMENT SELECTION ---------------- #
 st.markdown(f"""
 <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; padding-bottom: 15px;">
-    <h1 id="main-title" style="margin: 0; padding: 0;color: #ff9800;text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.9); font-size: 65px"> Score Predictor</h1>
+    <h1 id="main-title" style="margin: 0; padding: 0; color: #ff9800; text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.9);"> Score Predictor</h1>
 </div>
+
 """, unsafe_allow_html=True)
 
 tournament = st.selectbox(" Select Tournament ", ["IPL", "T20 "])
