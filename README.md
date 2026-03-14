@@ -4,6 +4,8 @@
 The  Score Predictor is a dynamic, machine learning-driven web application designed to forecast the first-innings score of both Indian Premier League (IPL) and International T20 matches. Featuring an intelligent, context-aware user interface, the application seamlessly adapts its prediction models and input parameters based on the user's selected tournament.
 
 ## Dataset
+<a href= "https://github.com/poojapatel0902/Score-Prediction/tree/main/ipl%20score%20prediction/ipl">ipl dataset</a>
+
 
 ## Project Process
 1. Dual-Pipeline Data Engineering
