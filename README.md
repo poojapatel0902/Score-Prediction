@@ -5,7 +5,7 @@ The  Score Predictor is a dynamic, machine learning-driven web application desig
 
 ## Dataset
 <a href= "https://github.com/poojapatel0902/Score-Prediction/tree/main/ipl%20score%20prediction/ipl">ipl dataset</a>
-
+<a href="https://github.com/poojapatel0902/Score-Prediction/tree/main/t20%20score%20prediction/t20s">t20 dataset</a>
 
 ## Project Process
 1. Dual-Pipeline Data Engineering
