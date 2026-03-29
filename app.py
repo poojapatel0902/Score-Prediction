@@ -359,7 +359,7 @@ def add_bg_from_local(image_file):
         div[data-testid="stAlert"] p {{ color: black !important; font-size: 22px !important; text-shadow: none !important; }}
 
         /* =========================================
-           10. MOBILE AUR TABLET RESPONSIVE CSS
+           MOBILE AUR TABLET RESPONSIVE CSS
            ========================================= */
         @media screen and (max-width: 768px) {{
             #main-title {{
@@ -372,7 +372,6 @@ def add_bg_from_local(image_file):
             }}
         }}
 
-        /* 3. SMALL PHONES (480px and below) */
         @media screen and (max-width: 480px) {{
             #main-title {{
                 font-size: 35px !important;
@@ -409,7 +408,6 @@ st.markdown(f"""
 
 tournament = st.selectbox(" Select Tournament ", ["IPL", "T20 "])
 
-
 # ---------------- DYNAMIC DATA & MODEL LOADING ---------------- #
 if tournament == "IPL":
     pipe = pickle.load(open("ipl_pipe.pkl", "rb"))
@@ -437,10 +435,9 @@ else:
     ]
 
 # ================================================================
-# 🔴 LIVE MATCH SECTION — NAYA ADD KIYA (tumhara code same hai)
+# 🔴 LIVE MATCH SECTION
 # ================================================================
 
-# Session state initialize karo
 if "live_data" not in st.session_state:
     st.session_state.live_data = None
 if "auto_filled" not in st.session_state:
@@ -456,77 +453,89 @@ if live_toggle:
     if err:
         st.error(f"❌ {err}")
     elif not live_matches:
-        st.warning("⚠️ Abhi koi live IPL/T20 match nahi chal raha. IPL season (April-May) mein try karo!")
+        st.warning("⚠️ Abhi koi live IPL/T20 match nahi chal raha.")
     else:
-        # Match selection dropdown
+        # ✅ FIX: nayi live_score.py ke saath _name aur _id use karo
         match_labels = {}
         for m in live_matches:
-            label = f"{'🏏 IPL' if m.get('is_ipl') else '🌍 T20'} — {m.get('name', 'Unknown Match')}"
-            match_labels[label] = m["id"]
+            name  = m.get("_name") or m.get("title") or m.get("name", "Unknown Match")
+            m_id  = m.get("_id")  or m.get("id", "")
+            emoji = "🏏 IPL" if m.get("is_ipl") else "🌍 T20"
+            label = f"{emoji} — {name}"
+            if m_id:
+                match_labels[label] = m_id
 
-        selected_label = st.selectbox("🎯 Live Match Select Karo", list(match_labels.keys()), key="live_match_select")
-        selected_id = match_labels[selected_label]
+        if not match_labels:
+            st.warning("⚠️ Match list mili but ID nahi mili. Thodi der baad try karo.")
+        else:
+            selected_label = st.selectbox(
+                "🎯 Live Match Select Karo",
+                list(match_labels.keys()),
+                key="live_match_select"
+            )
+            selected_id = match_labels[selected_label]
 
-        col_fetch, col_refresh = st.columns([1, 1])
-        with col_fetch:
-            fetch_btn = st.button("📡 Score Fetch Karo", key="fetch_live")
-        with col_refresh:
-            auto_refresh = st.checkbox("🔄 Auto-Refresh (30 sec)", value=False, key="auto_refresh")
+            col_fetch, col_refresh = st.columns([1, 1])
+            with col_fetch:
+                fetch_btn = st.button("📡 Score Fetch Karo", key="fetch_live")
+            with col_refresh:
+                auto_refresh = st.checkbox("🔄 Auto-Refresh (30 sec)", value=False, key="auto_refresh")
 
-        if fetch_btn or auto_refresh:
-            live_data, score_err = get_match_live_score(selected_id)
+            if fetch_btn or auto_refresh:
+                live_data, score_err = get_match_live_score(selected_id)
 
-            if score_err:
-                st.error(f"❌ {score_err}")
-            elif live_data:
-                st.session_state.live_data = live_data
-                st.session_state.auto_filled = True
+                if score_err:
+                    st.error(f"❌ {score_err}")
+                elif live_data:
+                    st.session_state.live_data  = live_data
+                    st.session_state.auto_filled = True
 
-                # Live Scoreboard Card
-                runs = live_data['runs']
-                wkts = live_data['wickets']
-                ovrs = live_data['overs']
-                crr = round(runs / max(float(ovrs), 0.1), 2)
+                    # Live Scoreboard Card
+                    runs = live_data['runs']
+                    wkts = live_data['wickets']
+                    ovrs = live_data['overs']
+                    crr  = round(runs / max(float(ovrs), 0.1), 2)
 
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, rgba(0,0,0,0.7), rgba(30,30,30,0.8));
-                    border-radius: 15px; padding: 20px;
-                    border: 2px solid #ff9800; margin: 10px 0;
-                    text-align: center;
-                ">
-                    <p style="color:#ff9800; font-size:18px; margin:0;">🔴 LIVE</p>
-                    <h2 style="color:white; margin:5px 0;">{live_data['match_name']}</h2>
-                    <div style="display:flex; justify-content:space-around; margin-top:15px;">
-                        <div style="color:white;">
-                            <div style="font-size:32px; font-weight:bold;">{runs}/{wkts}</div>
-                            <div style="color:#aaa; font-size:14px;">Score</div>
+                    st.markdown(f"""
+                    <div style="
+                        background: linear-gradient(135deg, rgba(0,0,0,0.7), rgba(30,30,30,0.8));
+                        border-radius: 15px; padding: 20px;
+                        border: 2px solid #ff9800; margin: 10px 0;
+                        text-align: center;
+                    ">
+                        <p style="color:#ff9800; font-size:18px; margin:0;">🔴 LIVE</p>
+                        <h2 style="color:white; margin:5px 0;">{live_data['match_name']}</h2>
+                        <div style="display:flex; justify-content:space-around; margin-top:15px;">
+                            <div style="color:white;">
+                                <div style="font-size:32px; font-weight:bold;">{runs}/{wkts}</div>
+                                <div style="color:#aaa; font-size:14px;">Score</div>
+                            </div>
+                            <div style="color:white;">
+                                <div style="font-size:32px; font-weight:bold;">{ovrs}</div>
+                                <div style="color:#aaa; font-size:14px;">Overs</div>
+                            </div>
+                            <div style="color:white;">
+                                <div style="font-size:32px; font-weight:bold;">{crr}</div>
+                                <div style="color:#aaa; font-size:14px;">CRR</div>
+                            </div>
                         </div>
-                        <div style="color:white;">
-                            <div style="font-size:32px; font-weight:bold;">{ovrs}</div>
-                            <div style="color:#aaa; font-size:14px;">Overs</div>
-                        </div>
-                        <div style="color:white;">
-                            <div style="font-size:32px; font-weight:bold;">{crr}</div>
-                            <div style="color:#aaa; font-size:14px;">CRR</div>
-                        </div>
+                        <p style="color:#4caf50; margin-top:10px; font-size:16px;">
+                            ✅ Neeche form auto-fill ho gaya! Predict Score dabao.
+                        </p>
                     </div>
-                    <p style="color:#4caf50; margin-top:10px; font-size:16px;">✅ Neeche form auto-fill ho gaya! Predict Score dabao.</p>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
-                # Auto-refresh countdown
-                if auto_refresh:
-                    refresh_placeholder = st.empty()
-                    for t in range(30, 0, -1):
-                        refresh_placeholder.caption(f"🔄 {t} sec mein score update hoga...")
-                        time.sleep(1)
-                    st.rerun()
+                    if auto_refresh:
+                        placeholder = st.empty()
+                        for t in range(30, 0, -1):
+                            placeholder.caption(f"🔄 {t} sec mein score update hoga...")
+                            time.sleep(1)
+                        st.rerun()
 
 st.markdown("---")
 
 # ================================================================
-# Default values set karo — live se aaye ya manual rahein
+# Default values — live se aaye ya manual rahein
 # ================================================================
 default_score   = 0
 default_overs   = 5.0
@@ -535,23 +544,21 @@ default_batting = sorted(teams)[0]
 default_bowling = sorted(teams)[0]
 
 if st.session_state.auto_filled and st.session_state.live_data:
-    d = st.session_state.live_data
+    d         = st.session_state.live_data
     team_dict = IPL_TEAMS if tournament == "IPL" else T20_TEAMS
 
-    mapped_bat  = match_team_name(d['batting_team_raw'], team_dict)
+    mapped_bat  = match_team_name(d['batting_team_raw'],  team_dict)
     mapped_bowl = match_team_name(d['bowling_team_raw'], team_dict)
 
     default_score   = d['runs']
     default_overs   = max(float(d['overs']), 5.0)
     default_wickets = d['wickets']
 
-    if mapped_bat and mapped_bat in teams:
-        default_batting = mapped_bat
-    if mapped_bowl and mapped_bowl in teams:
-        default_bowling = mapped_bowl
+    if mapped_bat  and mapped_bat  in teams: default_batting = mapped_bat
+    if mapped_bowl and mapped_bowl in teams: default_bowling = mapped_bowl
 
 # ================================================================
-# TUMHARA ORIGINAL UI (DABBE) — sirf default values add ki hain
+# ORIGINAL UI — sirf default values add ki hain
 # ================================================================
 if "reset_count" not in st.session_state:
     st.session_state["reset_count"] = 0
@@ -580,57 +587,50 @@ with col5:
     wickets = st.number_input("Wickets Fallen", min_value=0, max_value=10, step=1,
                                value=default_wickets, key=f"wickets_{rk}")
 
-# ---------------- PREDICTION LOGIC — TUMHARA ORIGINAL CODE ---------------- #
+# ---------------- PREDICTION LOGIC — ORIGINAL CODE ---------------- #
 if st.button("Predict Score"):
     if batting_team == bowling_team:
         st.error("Batting and Bowling team cannot be the same!")
     else:
-        overs_completed = int(overs)
+        overs_completed       = int(overs)
         balls_in_current_over = int(round((overs - overs_completed) * 10))
-        balls_bowled = (overs_completed * 6) + balls_in_current_over
-
-        balls_left = 120 - balls_bowled
-        wickets_left = 10 - wickets
-
-        # Calculate Run Rate
-        run_rate_value = (current_score * 6) / balls_bowled if balls_bowled > 0 else 0
+        balls_bowled          = (overs_completed * 6) + balls_in_current_over
+        balls_left            = 120 - balls_bowled
+        wickets_left          = 10 - wickets
+        run_rate_value        = (current_score * 6) / balls_bowled if balls_bowled > 0 else 0
 
         if tournament == "IPL":
             input_df = pd.DataFrame({
-                "batting_team": [batting_team],
-                "bowling_team": [bowling_team],
-                "city": [city],
-                "current_score": [current_score],
-                "balls_left": [balls_left],
-                "wickets_left": [wickets_left],
-                "current_run_rate": [run_rate_value]
+                "batting_team":    [batting_team],
+                "bowling_team":    [bowling_team],
+                "city":            [city],
+                "current_score":   [current_score],
+                "balls_left":      [balls_left],
+                "wickets_left":    [wickets_left],
+                "current_run_rate":[run_rate_value]
             })
         else:
             input_df = pd.DataFrame({
-                "batting_team": [batting_team],
-                "bowling_team": [bowling_team],
-                "city": [city],
-                "current_score": [current_score],
-                "balls_left": [balls_left],
-                "wickets_left": [wickets_left],
-                "current_run_rate": [run_rate_value],
-                "last_5_over": [0]
+                "batting_team":    [batting_team],
+                "bowling_team":    [bowling_team],
+                "city":            [city],
+                "current_score":   [current_score],
+                "balls_left":      [balls_left],
+                "wickets_left":    [wickets_left],
+                "current_run_rate":[run_rate_value],
+                "last_5_over":     [0]
             })
 
-        # Predict
-        result = pipe.predict(input_df)
+        result          = pipe.predict(input_df)
         predicted_score = int(result[0])
-
         st.success(f"🏆 Predicted Final Score: {predicted_score}")
 
-        # Timer & Refresh — TUMHARA ORIGINAL CODE
         countdown_msg = st.empty()
         for i in range(10, 0, -1):
             countdown_msg.info(f"⏳ Page will refresh in {i} seconds ")
             time.sleep(1)
 
-        # Live data bhi clear karo refresh pe
-        st.session_state.auto_filled = False
-        st.session_state.live_data = None
-        st.session_state["reset_count"] += 1
+        st.session_state.auto_filled        = False
+        st.session_state.live_data          = None
+        st.session_state["reset_count"]    += 1
         st.rerun()
