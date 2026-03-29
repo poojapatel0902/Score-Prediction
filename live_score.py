@@ -7,17 +7,17 @@ BASE_URL      = f"https://{RAPIDAPI_HOST}"
 
 # ── Team Maps ────────────────────────────────────────────────
 IPL_TEAMS = {
-    "Chennai Super Kings":        ["Chennai Super Kings", "CSK"],
-    "Delhi Capitals":             ["Delhi Capitals", "DC"],
-    "Gujarat Titans":             ["Gujarat Titans", "GT"],
-    "Kolkata Knight Riders":      ["Kolkata Knight Riders", "KKR"],
-    "Lucknow Super Giants":       ["Lucknow Super Giants", "LSG"],
-    "Mumbai Indians":             ["Mumbai Indians", "MI"],
-    "Punjab Kings":               ["Punjab Kings", "PBKS"],
-    "Rajasthan Royals":           ["Rajasthan Royals", "RR"],
-    "Royal Challengers Bengaluru":["Royal Challengers Bengaluru", "RCB",
-                                   "Royal Challengers Bangalore"],
-    "Sunrisers Hyderabad":        ["Sunrisers Hyderabad", "SRH"],
+    "Chennai Super Kings":         ["Chennai Super Kings", "CSK"],
+    "Delhi Capitals":              ["Delhi Capitals", "DC"],
+    "Gujarat Titans":              ["Gujarat Titans", "GT"],
+    "Kolkata Knight Riders":       ["Kolkata Knight Riders", "KKR"],
+    "Lucknow Super Giants":        ["Lucknow Super Giants", "LSG"],
+    "Mumbai Indians":              ["Mumbai Indians", "MI"],
+    "Punjab Kings":                ["Punjab Kings", "PBKS"],
+    "Rajasthan Royals":            ["Rajasthan Royals", "RR"],
+    "Royal Challengers Bengaluru": ["Royal Challengers Bengaluru", "RCB",
+                                    "Royal Challengers Bangalore"],
+    "Sunrisers Hyderabad":         ["Sunrisers Hyderabad", "SRH"],
 }
 
 T20_TEAMS = {
@@ -41,13 +41,11 @@ def get_api_key():
 
 def get_headers():
     return {
-        "X-RapidAPI-Key":  get_api_key(),
-        "X-RapidAPI-Host": RAPIDAPI_HOST,
-        "Content-Type":    "application/json",
+        "x-rapidapi-key":  get_api_key(),
+        "x-rapidapi-host": RAPIDAPI_HOST,
     }
 
 def match_team_name(api_team, team_dict):
-    """API team name → model team name"""
     if not api_team:
         return None
     api_lower = api_team.lower()
@@ -59,129 +57,167 @@ def match_team_name(api_team, team_dict):
 
 # ── Live Matches ──────────────────────────────────────────────
 def get_live_matches():
-    """Fetch all live T20 / IPL matches from RapidAPI Cricbuzz"""
     api_key = get_api_key()
     if not api_key:
         return [], "API Key nahi mili. Streamlit Secrets mein RAPIDAPI_KEY set karo."
 
-    try:
-        url = f"{BASE_URL}/cricket-match-live-score"     # live matches endpoint
-        response = requests.get(url, headers=get_headers(), timeout=10)
+    headers = get_headers()
 
-        # ── If endpoint gives 404 / empty, try fixtures ───────
-        if response.status_code == 404 or not response.text.strip():
-            url = f"{BASE_URL}/cricket-fixtures"
-            response = requests.get(url, headers=get_headers(), timeout=10)
+    # Try 3 possible endpoints — jo bhi kaam kare
+    endpoints_to_try = [
+        f"{BASE_URL}/cricket-match-live-score",
+        f"{BASE_URL}/cricket-fixtures",
+        f"{BASE_URL}/matches",
+    ]
 
-        data = response.json()
+    raw_data = None
+    worked_url = None
 
-        # API returns list directly OR wrapped in a key
-        if isinstance(data, list):
-            all_matches = data
-        elif isinstance(data, dict):
-            # Try common wrapper keys
-            all_matches = (data.get("matches")
-                        or data.get("data")
-                        or data.get("results")
-                        or [])
-        else:
-            all_matches = []
+    for url in endpoints_to_try:
+        try:
+            r = requests.get(url, headers=headers, timeout=10)
+            if r.status_code == 200 and r.text.strip():
+                raw_data = r.json()
+                worked_url = url
+                break
+        except Exception:
+            continue
 
+    if raw_data is None:
+        return [], "API se koi response nahi aaya. RapidAPI key check karo."
+
+    # ── Parse response — list ya dict dono handle karo ────────
+    all_matches = []
+    if isinstance(raw_data, list):
+        all_matches = raw_data
+    elif isinstance(raw_data, dict):
+        for key in ["matches", "data", "results", "fixtures", "typeMatches"]:
+            val = raw_data.get(key)
+            if val and isinstance(val, list):
+                all_matches = val
+                break
+        # Cricbuzz nested format: typeMatches > seriesMatches > matches
         if not all_matches:
-            return [], None          # No error — just no live matches right now
+            for section in raw_data.get("typeMatches", []):
+                for series in section.get("seriesMatches", []):
+                    series_card = series.get("seriesAdWrapper") or series
+                    for m in series_card.get("matches", []):
+                        all_matches.append(m.get("matchInfo", m))
 
-        # Filter IPL / T20
-        filtered = []
-        for m in all_matches:
-            series     = str(m.get("series",    "")).lower()
-            match_type = str(m.get("matchType", "")).lower()
-            name       = str(m.get("name",      "")).lower()
+    # ── Show raw response in sidebar for debugging ─────────────
+    with st.sidebar:
+        st.markdown("### 🔧 Debug Info")
+        st.caption(f"URL tried: `{worked_url}`")
+        st.caption(f"Total matches found: {len(all_matches)}")
+        if all_matches:
+            st.json(all_matches[0])   # Show first match structure
 
-            is_ipl = "ipl" in series or "indian premier" in series or "ipl" in name
-            is_t20 = "t20" in match_type or "t20" in series or "t20" in name
+    if not all_matches:
+        return [], None
 
-            if is_ipl or is_t20:
-                m["is_ipl"] = is_ipl
-                filtered.append(m)
+    # ── Filter IPL / T20 ──────────────────────────────────────
+    filtered = []
+    for m in all_matches:
+        # Handle nested matchInfo
+        info = m.get("matchInfo", m)
 
-        return filtered, None
+        series     = str(info.get("seriesName", info.get("series",    ""))).lower()
+        match_type = str(info.get("matchFormat", info.get("matchType",""))).lower()
+        name       = str(info.get("matchDesc",   info.get("name",     ""))).lower()
+        team1_raw  = info.get("team1", {})
+        team2_raw  = info.get("team2", {})
+        team1      = str(team1_raw.get("teamName","") if isinstance(team1_raw,dict) else team1_raw).lower()
+        team2      = str(team2_raw.get("teamName","") if isinstance(team2_raw,dict) else team2_raw).lower()
 
-    except requests.exceptions.Timeout:
-        return [], "Request timeout — internet check karo."
-    except Exception as e:
-        return [], f"Error: {str(e)}"
+        is_ipl = any(kw in series for kw in ["ipl", "indian premier"])
+        is_t20 = "t20" in match_type or "t20" in series
+
+        # Also check team names directly for IPL teams
+        ipl_keywords = ["csk","mi","rcb","kkr","srh","rr","dc","gt","pbks","lsg",
+                        "chennai","mumbai","bangalore","bengaluru","kolkata",
+                        "hyderabad","rajasthan","delhi","gujarat","punjab","lucknow"]
+        teams_str = team1 + " " + team2
+        has_ipl_team = any(kw in teams_str for kw in ipl_keywords)
+
+        if is_ipl or is_t20 or has_ipl_team:
+            m["is_ipl"] = is_ipl or has_ipl_team
+            m["_name"]  = name or f"{team1} vs {team2}"
+            m["_id"]    = (info.get("matchId") or info.get("id") or
+                           m.get("matchId")    or m.get("id", ""))
+            filtered.append(m)
+
+    return filtered, None
 
 
 # ── Live Score for One Match ──────────────────────────────────
 def get_match_live_score(match_id):
-    """Fetch live scorecard for a specific match"""
     api_key = get_api_key()
     if not api_key:
         return None, "API Key nahi mili."
 
-    try:
-        url = f"{BASE_URL}/cricket-match-info"
-        params = {"matchid": match_id}
-        response = requests.get(url, headers=get_headers(),
-                                params=params, timeout=10)
-        data = response.json()
+    headers = get_headers()
 
-        # ── Unwrap response ───────────────────────────────────
-        if isinstance(data, dict):
-            scorecard = (data.get("scorecard")
-                      or data.get("data")
-                      or data.get("score")
-                      or data)
-        else:
-            scorecard = {}
+    # Try both possible score endpoints
+    urls_to_try = [
+        (f"{BASE_URL}/cricket-match-info",        {"matchid": match_id}),
+        (f"{BASE_URL}/cricket-match-live-score",  {"matchid": match_id}),
+        (f"{BASE_URL}/match-scorecard",           {"id":      match_id}),
+    ]
 
-        # ── Extract runs / wickets / overs ───────────────────
-        # Try nested score list first
-        scores = scorecard.get("score", [])
-        if scores and isinstance(scores, list):
-            current = scores[0]
-            runs    = int(current.get("r", 0))
-            wickets = int(current.get("w", 0))
-            overs_raw = str(current.get("o", "0.0"))
-        else:
-            # Flat structure
-            runs      = int(scorecard.get("runs",    data.get("runs",    0)))
-            wickets   = int(scorecard.get("wickets", data.get("wickets", 0)))
-            overs_raw = str(scorecard.get("overs",   data.get("overs",   "0.0")))
-
-        # ── Parse overs (e.g. "12.3" → 12.3) ────────────────
+    data = None
+    for url, params in urls_to_try:
         try:
-            parts         = overs_raw.split(".")
-            full_overs    = int(parts[0])
-            balls         = int(parts[1]) if len(parts) > 1 else 0
-            overs_decimal = round(full_overs + balls / 10, 1)
+            r = requests.get(url, headers=headers, params=params, timeout=10)
+            if r.status_code == 200 and r.text.strip():
+                data = r.json()
+                break
         except Exception:
-            overs_decimal = 0.0
+            continue
 
-        # ── Team names ────────────────────────────────────────
-        teams = scorecard.get("teams", [])
-        if teams and isinstance(teams, list):
-            batting_raw = teams[0]
-            bowling_raw = teams[1] if len(teams) > 1 else ""
-        else:
-            batting_raw = (scorecard.get("batting") or data.get("battingTeam", ""))
-            bowling_raw = (scorecard.get("bowling") or data.get("bowlingTeam", ""))
+    if data is None:
+        return None, "Match ka score fetch nahi hua."
 
-        result = {
-            "runs":             runs,
-            "wickets":          wickets,
-            "overs":            overs_decimal,
-            "batting_team_raw": batting_raw,
-            "bowling_team_raw": bowling_raw,
-            "match_name":       (scorecard.get("name")
-                              or data.get("matchName")
-                              or data.get("name", "Live Match")),
-            "status":           (scorecard.get("status")
-                              or data.get("status", "")),
-        }
-        return result, None
+    # ── Unwrap ────────────────────────────────────────────────
+    scorecard = (data.get("scorecard") or data.get("data") or
+                 data.get("score")     or data)
 
-    except requests.exceptions.Timeout:
-        return None, "Timeout — dubara try karo."
-    except Exception as e:
-        return None, f"Error: {str(e)}"
+    # ── Runs / Wickets / Overs ────────────────────────────────
+    scores = scorecard.get("score", [])
+    if scores and isinstance(scores, list):
+        current = scores[0]
+        runs    = int(current.get("r", 0))
+        wickets = int(current.get("w", 0))
+        overs_r = str(current.get("o", "0.0"))
+    else:
+        runs    = int(scorecard.get("runs",    data.get("runs",    0)))
+        wickets = int(scorecard.get("wickets", data.get("wickets", 0)))
+        overs_r = str(scorecard.get("overs",   data.get("overs",   "0.0")))
+
+    # ── Parse overs ───────────────────────────────────────────
+    try:
+        parts         = overs_r.split(".")
+        full_overs    = int(parts[0])
+        balls         = int(parts[1]) if len(parts) > 1 else 0
+        overs_decimal = round(full_overs + balls / 10, 1)
+    except Exception:
+        overs_decimal = 0.0
+
+    # ── Teams ─────────────────────────────────────────────────
+    teams = scorecard.get("teams", [])
+    if teams and isinstance(teams, list):
+        batting_raw = str(teams[0])
+        bowling_raw = str(teams[1]) if len(teams) > 1 else ""
+    else:
+        batting_raw = str(scorecard.get("batting") or data.get("battingTeam", ""))
+        bowling_raw = str(scorecard.get("bowling") or data.get("bowlingTeam", ""))
+
+    return {
+        "runs":             runs,
+        "wickets":          wickets,
+        "overs":            overs_decimal,
+        "batting_team_raw": batting_raw,
+        "bowling_team_raw": bowling_raw,
+        "match_name":       (scorecard.get("name") or data.get("matchName")
+                             or data.get("name", "Live Match")),
+        "status":           (scorecard.get("status") or data.get("status", "")),
+    }, None
