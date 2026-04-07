@@ -2,6 +2,6 @@ streamlit
 pandas
 numpy
 scikit-learn==1.7.2
-xgboost==1.6.2
+xgboost>=2.0.0
 requests
 setuptools
