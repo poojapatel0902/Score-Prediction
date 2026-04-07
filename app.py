@@ -443,33 +443,32 @@ if "live_data" not in st.session_state:
 if "auto_filled" not in st.session_state:
     st.session_state.auto_filled = False
 
-st.markdown("---")
-live_toggle = st.toggle("🔴 Live Match se Auto-Fill karo", value=False, key="live_toggle")
+
+live_toggle = st.toggle(" Auto-Fill", value=False, key="live_toggle")
 
 if live_toggle:
-    with st.spinner("⏳ Live matches dhundh raha hai..."):
+    with st.spinner(" Live matches searching..."):
         live_matches, err = get_live_matches()
 
     if err:
         st.error(f"❌ {err}")
     elif not live_matches:
-        st.warning("⚠️ Abhi koi live IPL/T20 match nahi chal raha.")
+        st.warning("There is no live match.")
     else:
-        # ✅ FIX: nayi live_score.py ke saath _name aur _id use karo
         match_labels = {}
         for m in live_matches:
             name  = m.get("_name") or m.get("title") or m.get("name", "Unknown Match")
             m_id  = m.get("_id")  or m.get("id", "")
-            emoji = "🏏 IPL" if m.get("is_ipl") else "🌍 T20"
+            emoji = " IPL" if m.get("is_ipl") else "T20"
             label = f"{emoji} — {name}"
             if m_id:
                 match_labels[label] = m_id
 
         if not match_labels:
-            st.warning("⚠️ Match list mili but ID nahi mili. Thodi der baad try karo.")
+            st.warning(" Match list mili but ID nahi mili. Thodi der baad try karo.")
         else:
             selected_label = st.selectbox(
-                "🎯 Live Match Select Karo",
+                " Select Live Match ",
                 list(match_labels.keys()),
                 key="live_match_select"
             )
@@ -477,9 +476,9 @@ if live_toggle:
 
             col_fetch, col_refresh = st.columns([1, 1])
             with col_fetch:
-                fetch_btn = st.button("📡 Score Fetch Karo", key="fetch_live")
+                fetch_btn = st.button("Score Fetching ", key="fetch_live")
             with col_refresh:
-                auto_refresh = st.checkbox("🔄 Auto-Refresh (30 sec)", value=False, key="auto_refresh")
+                auto_refresh = st.checkbox("Auto-Refresh (30 sec)", value=False, key="auto_refresh")
 
             if fetch_btn or auto_refresh:
                 live_data, score_err = get_match_live_score(selected_id)
@@ -500,7 +499,7 @@ if live_toggle:
                     <div style="
                         background: linear-gradient(135deg, rgba(0,0,0,0.7), rgba(30,30,30,0.8));
                         border-radius: 15px; padding: 20px;
-                        border: 2px solid #ff9800; margin: 10px 0;
+                        border: 2px  #ff9800; margin: 10px 0;
                         text-align: center;
                     ">
                         <p style="color:#ff9800; font-size:18px; margin:0;">🔴 LIVE</p>
@@ -519,9 +518,7 @@ if live_toggle:
                                 <div style="color:#aaa; font-size:14px;">CRR</div>
                             </div>
                         </div>
-                        <p style="color:#4caf50; margin-top:10px; font-size:16px;">
-                            ✅ Neeche form auto-fill ho gaya! Predict Score dabao.
-                        </p>
+                        
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -532,60 +529,53 @@ if live_toggle:
                             time.sleep(1)
                         st.rerun()
 
-st.markdown("---")
+
 
 # ================================================================
-# Default values — live se aaye ya manual rahein
-# ================================================================
-default_score   = 0
-default_overs   = 5.0
-default_wickets = 0
-default_batting = sorted(teams)[0]
-default_bowling = sorted(teams)[0]
-
-if st.session_state.auto_filled and st.session_state.live_data:
-    d         = st.session_state.live_data
-    team_dict = IPL_TEAMS if tournament == "IPL" else T20_TEAMS
-
-    mapped_bat  = match_team_name(d['batting_team_raw'],  team_dict)
-    mapped_bowl = match_team_name(d['bowling_team_raw'], team_dict)
-
-    default_score   = d['runs']
-    default_overs   = max(float(d['overs']), 5.0)
-    default_wickets = d['wickets']
-
-    if mapped_bat  and mapped_bat  in teams: default_batting = mapped_bat
-    if mapped_bowl and mapped_bowl in teams: default_bowling = mapped_bowl
-
-# ================================================================
-# ORIGINAL UI — sirf default values add ki hain
+# 🎯 SESSION STATE AUTO-FILL LOGIC
 # ================================================================
 if "reset_count" not in st.session_state:
     st.session_state["reset_count"] = 0
 rk = st.session_state["reset_count"]
 
+# Agar live data aagaya hai, toh input boxes ko force-update karo
+if st.session_state.auto_filled and st.session_state.live_data:
+    d = st.session_state.live_data
+    team_dict = IPL_TEAMS if tournament == "IPL" else T20_TEAMS
+
+    mapped_bat  = match_team_name(d['batting_team_raw'],  team_dict)
+    mapped_bowl = match_team_name(d['bowling_team_raw'], team_dict)
+
+    # Widgets ki keys ko update kar rahe hain
+    st.session_state[f"score_{rk}"] = int(d['runs'])
+    st.session_state[f"overs_{rk}"] = max(float(d['overs']), 5.0)
+    st.session_state[f"wickets_{rk}"] = int(d['wickets'])
+
+    if mapped_bat and mapped_bat in teams:
+        st.session_state[f"bat_{rk}"] = mapped_bat
+    if mapped_bowl and mapped_bowl in teams:
+        st.session_state[f"bowl_{rk}"] = mapped_bowl
+
+
+# ================================================================
+# ORIGINAL UI (DABBE) - Bina kisi UI change ke
+# ================================================================
 col1, col2 = st.columns(2)
 with col1:
-    bat_list = sorted(teams)
-    bat_idx  = bat_list.index(default_batting) if default_batting in bat_list else 0
-    batting_team = st.selectbox("Select Batting Team", bat_list, index=bat_idx, key=f"bat_{rk}")
+    batting_team = st.selectbox("Select Batting Team", sorted(teams), key=f"bat_{rk}")
 with col2:
-    bowl_list = sorted(teams)
-    bowl_idx  = bowl_list.index(default_bowling) if default_bowling in bowl_list else 0
-    bowling_team = st.selectbox("Select Bowling Team", bowl_list, index=bowl_idx, key=f"bowl_{rk}")
+    bowling_team = st.selectbox("Select Bowling Team", sorted(teams), key=f"bowl_{rk}")
 
 city = st.selectbox("Select City", sorted(cities), key=f"city_{rk}")
 
 col3, col4, col5 = st.columns(3)
 with col3:
-    current_score = st.number_input("Current Score", min_value=0, step=1,
-                                     value=default_score, key=f"score_{rk}")
+    current_score = st.number_input("Current Score", min_value=0, step=1, key=f"score_{rk}")
 with col4:
-    overs = st.number_input("Overs Bowled (e.g., 5.3)", min_value=5.0, max_value=19.5,
-                             step=0.1, value=float(default_overs), key=f"overs_{rk}")
+    overs = st.number_input("Overs Bowled (e.g., 5.3)", min_value=5.0, max_value=19.5, step=0.1, key=f"overs_{rk}")
 with col5:
-    wickets = st.number_input("Wickets Fallen", min_value=0, max_value=10, step=1,
-                               value=default_wickets, key=f"wickets_{rk}")
+    wickets = st.number_input("Wickets Fallen", min_value=0, max_value=10, step=1, key=f"wickets_{rk}")
+
 
 # ---------------- PREDICTION LOGIC — ORIGINAL CODE ---------------- #
 if st.button("Predict Score"):

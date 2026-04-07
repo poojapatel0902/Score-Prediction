@@ -1,9 +1,9 @@
 import requests
 import streamlit as st
 
-# ── FREE API — No Key Needed! ─────────────────────────────────
-# Source: https://github.com/ekamid/cricbuzz-live
-BASE_URL = "https://cricbuzz-live.vercel.app/v1"
+# ── OFFICIAL CRICAPI (cricketdata.org) ───────────────────────
+CRICKET_API_KEY = "4fced4fa-53da-4030-86f1-ab36a5820a56"
+BASE_URL = "https://api.cricapi.com/v1"
 
 # ── Team Maps ────────────────────────────────────────────────
 IPL_TEAMS = {
@@ -57,14 +57,20 @@ def is_ipl_match(title):
 # ── Live Matches ──────────────────────────────────────────────
 def get_live_matches():
     try:
-        url = f"{BASE_URL}/matches/live"
+        # Naya URL (currentMatches API)
+        url = f"{BASE_URL}/currentMatches?apikey={CRICKET_API_KEY}&offset=0"
         response = requests.get(url, timeout=10)
 
         if response.status_code != 200:
             return [], f"API Error: Status {response.status_code}"
 
         data = response.json()
-        all_matches = data.get("data", {}).get("matches", [])
+        
+        # Check for API limit error
+        if data.get("status") == "failure":
+            return [], f"API Error: {data.get('reason', 'Daily Limit Reached')}"
+
+        all_matches = data.get("data", [])
 
         if not all_matches:
             return [], None
@@ -72,14 +78,20 @@ def get_live_matches():
         # Filter IPL / T20 matches
         filtered = []
         for m in all_matches:
-            title = m.get("title", "")
-            if is_ipl_match(title):
-                m["is_ipl"] = True
+            title = m.get("name", "")
+            match_type = str(m.get("matchType", "")).lower()
+            
+            if match_type == "t20" or match_type == "t20i" or is_ipl_match(title):
+                # Return format same as old code so app.py doesn't break
+                m["title"] = title 
+                m["is_ipl"] = is_ipl_match(title)
                 filtered.append(m)
 
-        # Agar koi IPL match na mile — saare T20 matches dikhao
+        # Agar koi match na mile — saare matches dikhao fallback ke liye
         if not filtered:
-            filtered = all_matches  # Sab dikhao
+            for m in all_matches:
+                m["title"] = m.get("name", "")
+            filtered = all_matches
 
         return filtered, None
 
@@ -91,46 +103,54 @@ def get_live_matches():
 # ── Live Score for One Match ──────────────────────────────────
 def get_match_live_score(match_id):
     try:
-        url = f"{BASE_URL}/score/{match_id}"
+        # Naya URL (match_info API) for specific match
+        url = f"{BASE_URL}/match_info?apikey={CRICKET_API_KEY}&id={match_id}"
         response = requests.get(url, timeout=10)
 
         if response.status_code != 200:
             return None, f"Score fetch nahi hua: Status {response.status_code}"
 
         data = response.json()
+        
+        if data.get("status") == "failure":
+            return None, f"API Error: {data.get('reason', 'Daily Limit Reached')}"
+            
         score_data = data.get("data", {})
 
-        # Parse live score string e.g. "MI 87/2 (10.3 Ovs)"
-        live_score_str = score_data.get("liveScore", "0/0 (0.0 Ovs)")
-
         runs, wickets, overs_decimal = 0, 0, 0.0
-        try:
-            # "MI 87/2 (10.3 Ovs)" → extract runs/wickets/overs
-            import re
-            rw_match = re.search(r'(\d+)/(\d+)', live_score_str)
-            ov_match = re.search(r'\((\d+\.\d+)', live_score_str)
+        
+        # CricAPI direct numbers deta hai (Regex ki zaroorat nahi)
+        score_array = score_data.get("score", [])
+        if score_array and len(score_array) > 0:
+            latest_score = score_array[-1] # Latest inning score
+            runs = latest_score.get("r", 0)
+            wickets = latest_score.get("w", 0)
+            overs_decimal = float(latest_score.get("o", 0.0))
+            inning_str = latest_score.get("inning", "")
+        else:
+            inning_str = ""
 
-            if rw_match:
-                runs    = int(rw_match.group(1))
-                wickets = int(rw_match.group(2))
-            if ov_match:
-                overs_decimal = float(ov_match.group(1))
-        except Exception:
-            pass
+        # Teams from API
+        title = score_data.get("name", "Live Match")
+        teams = score_data.get("teams", ["", ""])
+        
+        batting_raw = ""
+        bowling_raw = ""
 
-        # Teams from title
-        title  = score_data.get("title", "Live Match")
-        teams  = score_data.get("teams", [])
+        if len(teams) >= 2:
+            # Pata lagao kaun batting kar raha hai
+            if teams[0] in inning_str:
+                batting_raw = teams[0]
+                bowling_raw = teams[1]
+            elif teams[1] in inning_str:
+                batting_raw = teams[1]
+                bowling_raw = teams[0]
+            else:
+                # Fallback
+                batting_raw = teams[0]
+                bowling_raw = teams[1]
 
-        batting_raw = teams[0].get("team", "") if teams and isinstance(teams[0], dict) else ""
-        bowling_raw = teams[1].get("team", "") if len(teams) > 1 and isinstance(teams[1], dict) else ""
-
-        # Agar teams empty hain — title se try karo
-        if not batting_raw and "vs" in title.lower():
-            parts       = title.lower().split("vs")
-            batting_raw = parts[0].strip()
-            bowling_raw = parts[1].strip().split(",")[0].strip()
-
+        # Wapas wahi dictionary bhejo jo app.py ko samajh aati hai
         return {
             "runs":             runs,
             "wickets":          wickets,
@@ -138,7 +158,7 @@ def get_match_live_score(match_id):
             "batting_team_raw": batting_raw,
             "bowling_team_raw": bowling_raw,
             "match_name":       title,
-            "status":           score_data.get("update", ""),
+            "status":           score_data.get("status", ""),
         }, None
 
     except requests.exceptions.Timeout:
